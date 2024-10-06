@@ -1,0 +1,84 @@
+#include <WiFi.h>
+#include <Servo.h>
+
+// Replace with your network credentials
+const char* ssid = "YOUR_SSID";
+const char* password = "YOUR_PASSWORD";
+
+// Servo setup
+Servo panServo;
+Servo tiltServo;
+
+// Pin definitions
+const int potPin = 34; // Potentiometer pin
+const int panServoPin = 13; // Pan servo pin
+const int tiltServoPin = 12; // Tilt servo pin
+
+// Rotary encoder pins
+const int encA = 35; // CLK pin of the rotary encoder
+const int encB = 32; // DT pin of the rotary encoder
+
+// Variables
+int potValue;
+int panPos = 90; // Initial position for pan
+int tiltPos = 90; // Initial position for tilt
+volatile int encPos = 0; // Current position of the rotary encoder
+
+void setup() {
+  Serial.begin(115200);
+  
+  // Initialize the servos
+  panServo.attach(panServoPin);
+  tiltServo.attach(tiltServoPin);
+  panServo.write(panPos);
+  tiltServo.write(tiltPos);
+  
+  // Initialize the potentiometer
+  pinMode(potPin, INPUT);
+  
+  // Initialize rotary encoder
+  pinMode(encA, INPUT_PULLUP);
+  pinMode(encB, INPUT_PULLUP);
+  attachInterrupt(encA, readEncoder, CHANGE);
+  
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("Connected to WiFi");
+}
+
+void loop() {
+  // Read the potentiometer value (0 to 4095 for ESP32)
+  potValue = analogRead(potPin);
+  
+  // Map the potentiometer value to servo angles (0 to 180 degrees)
+  tiltPos = map(potValue, 0, 4095, 0, 180);
+  
+  // Write the positions to the servos
+  panServo.write(encPos + 90); // Map encoder position to pan angle
+  tiltServo.write(tiltPos); // Set tilt angle based on potentiometer
+
+  // Debug output
+  Serial.print("Pot Value: ");
+  Serial.print(potValue);
+  Serial.print(" | Tilt Pos: ");
+  Serial.print(tiltPos);
+  Serial.print(" | Pan Pos: ");
+  Serial.println(encPos + 90); // Offset encoder position
+
+  delay(100); // Small delay for stability
+}
+
+void readEncoder() {
+  if (digitalRead(encA) == digitalRead(encB)) {
+    encPos++; // Clockwise
+  } else {
+    encPos--; // Counter-clockwise
+  }
+
+  // Limit the encoder position for pan servo
+  encPos = constrain(encPos, -90, 90); // Adjust limits as necessary
+}
